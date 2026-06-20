@@ -27,6 +27,7 @@
 | 编码自适应 | Windows 中文系统的 GBK / CP936 自动切换 UTF-8，无乱码 |
 | 指纹识别 | 自动扫描 10 种主流指纹浏览器残留并提示 |
 | Sync 重置 | 清云端污染缓存，让 Chrome 重新做账号握手 |
+| 核心启用 | 自动设置 `is_glic_eligible`、`variations_country`、`variations_permanent_consistency_country` 三个关键开关 |
 
 ## 工作原理简述
 
@@ -38,7 +39,7 @@ Gemini in Chrome 不显示，本质是 Chrome 的 **Glic 子系统**初始化失
 
 第三，指纹浏览器（Roxy、AdsPower 等）在用户数据目录里留下了 IndexedDB、content_settings、Sync 缓存等多层污染。
 
-本工具的修复策略：**同时清空本地 flag 偏好 + 清空 Sync 同步缓存 + 清理所有指纹污染**，让 Chrome 启动后做一次完整的「云端重新握手」，把云端污染状态也一起刷新掉。
+本工具的修复策略：**设置 Glic 功能开关 → 设置地区码为支持地区 → 清空本地 flag 偏好 → 清空 Sync 同步缓存 → 清理所有指纹污染**，让 Chrome 启动后做一次完整的「云端重新握手」，把云端污染状态也一起刷新掉。
 
 ## 系统要求
 
@@ -116,14 +117,15 @@ bash 修复脚本-macOS-Linux.sh
 | 3 | 完全关闭 Chrome 进程 | 关闭浏览器 |
 | 4 | 创建完整备份 | 仅创建备份目录 |
 | 5 | 扫描指纹浏览器残留 | 仅扫描提示 |
-| 6 | 清理 Local State 异常 flag | 移除问题 flag |
-| 7 | 调整 profile 语言优先级 | 英语 US 设为首位 |
-| 8 | 清除代理站点 IndexedDB | 清网站数据库 |
-| 9 | 清除优化引擎 hint cache | 清缓存 |
-| 10 | 清除 content_settings 污染 | 清污染条目 |
-| 11 | 清空 chrome://flags 偏好 | 重置 flag 偏好 |
-| 12 | 清理 Sync 同步缓存 | 让账号重新握手 |
-| 13 | 用户数据完整性校验 | 验证关键文件未损 |
+| 6 | 启用 Glic 并锁定地区码 | 设置 `is_glic_eligible=true`、`variations_country=us` |
+| 7 | 清理 Local State 异常 flag | 移除问题 flag |
+| 8 | 调整 profile 语言优先级 | 英语 US 设为首位 |
+| 9 | 清除代理站点 IndexedDB | 清网站数据库 |
+| 10 | 清除优化引擎 hint cache | 清缓存 |
+| 11 | 清除 content_settings 污染 | 清污染条目 |
+| 12 | 清空 chrome://flags 偏好 | 重置 flag 偏好 |
+| 13 | 清理 Sync 同步缓存 | 让账号重新握手 |
+| 14 | 用户数据完整性校验 | 验证关键文件未损 |
 
 ## 脚本完成后的手动操作
 
@@ -297,7 +299,6 @@ Chrome 的 Local State 与 Preferences 是深度嵌套 JSON。PowerShell 的 `Co
 ## 项目结构
 
 ```
-Gemini-Chrome-完整修复工具/
 ├── README.md                    # 中文说明（本文件）
 ├── README_EN.md                 # 英文说明
 ├── 启用教程-完整版.md            # 从零启用的完整流程

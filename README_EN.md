@@ -268,7 +268,6 @@ Chrome's Local State and Preferences are deeply nested JSON. PowerShell's `Conve
 ## Project Structure
 
 ```
-Gemini-Chrome-完整修复工具/
 ├── README.md                    # Chinese readme
 ├── README_EN.md                 # English readme (this file)
 ├── 启用教程-完整版.md            # Full enable tutorial (Chinese)

@@ -281,12 +281,36 @@ function Repair-LocalState {
         Write-Host "    剪除：$r"
     }
 
+    # ----- 启用 Glic（Gemini in Chrome 核心开关）-----
+    $glicProp = $data.PSObject.Properties["is_glic_eligible"]
+    if (-not $glicProp -or -not $data.is_glic_eligible) {
+        if (-not $glicProp) {
+            $data | Add-Member -NotePropertyName "is_glic_eligible" -NotePropertyValue $true
+        } else {
+            $data.is_glic_eligible = $true
+        }
+        Write-Host "  已启用 is_glic_eligible=true"
+    }
+
+    # ----- 设置地区码为支持地区（关键：不设置则 Gemini 不显示）-----
     $country = ""
     if ($data.PSObject.Properties["variations_country"]) {
         $country = $data.variations_country
     }
-    if ([string]::IsNullOrEmpty($country) -or $country -eq "cn") {
-        Write-Host "  提示：variations_country='$country'，需在支持地区登录后由 Chrome 自动更新"
+    if ([string]::IsNullOrEmpty($country) -or $country -eq "cn" -or $country -eq "CN") {
+        $data.variations_country = "us"
+        Write-Host "  已设置 variations_country='us'（原值：'$country'）"
+    }
+
+    # ----- 设置永久一致性地区码（Chrome 同步验证用）-----
+    $permProp = $data.PSObject.Properties["variations_permanent_consistency_country"]
+    if (-not $permProp -or [string]::IsNullOrEmpty($data.variations_permanent_consistency_country)) {
+        if (-not $permProp) {
+            $data | Add-Member -NotePropertyName "variations_permanent_consistency_country" -NotePropertyValue @(" ", "us")
+        } else {
+            $data.variations_permanent_consistency_country = @(" ", "us")
+        }
+        Write-Host "  已设置 variations_permanent_consistency_country=[' ', 'us']"
     }
 
     Write-JsonFile -Path $lsPath -Data $data

@@ -219,10 +219,22 @@ print(f"  移除异常 flag：{len(removed)} 条")
 for r in removed:
     print(f"    剪除：{r}")
 
-# ----- 锁定地区码到支持 Gemini 的区域（如果当前为空或非法）-----
+# ----- 启用 Glic（Gemini in Chrome 核心开关）-----
+if not data.get('is_glic_eligible'):
+    data['is_glic_eligible'] = True
+    print("  已启用 is_glic_eligible=true")
+
+# ----- 设置地区码为支持地区（关键：不设置则 Gemini 不显示）-----
 current_country = data.get('variations_country', '')
-if current_country in ['', 'cn', 'CN']:
-    print(f"  提示：variations_country='{current_country}'，需在支持地区登录后由 Chrome 自动更新")
+if not current_country or str(current_country).lower() in ('', 'cn'):
+    data['variations_country'] = 'us'
+    print(f"  已设置 variations_country='us'（原值：'{current_country}'）")
+
+# ----- 设置永久一致性地区码（Chrome 同步验证用）-----
+current_perm = data.get('variations_permanent_consistency_country')
+if not current_perm or (isinstance(current_perm, str) and current_perm.lower() in ('', 'cn')):
+    data['variations_permanent_consistency_country'] = [' ', 'us']
+    print(f"  已设置 variations_permanent_consistency_country=[' ', 'us']")
 
 # ----- 紧凑格式原子写回，与 Chrome 原生格式保持一致 -----
 tmp = ls_path + '.tmp_write'
