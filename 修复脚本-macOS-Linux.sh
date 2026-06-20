@@ -231,9 +231,16 @@ if not current_country or str(current_country).lower() in ('', 'cn'):
 
 # ----- 设置永久一致性地区码（Chrome 同步验证用）-----
 current_perm = data.get('variations_permanent_consistency_country')
-if not current_perm or (isinstance(current_perm, str) and current_perm.lower() in ('', 'cn')):
+def _is_perm_ok(v):
+    if isinstance(v, list):
+        return any('us' in str(x).lower() for x in v)
+    if isinstance(v, str):
+        return v.lower() == 'us'
+    return False
+if not _is_perm_ok(current_perm):
+    old_display = str(current_perm) if current_perm else 'None'
     data['variations_permanent_consistency_country'] = [' ', 'us']
-    print(f"  已设置 variations_permanent_consistency_country=[' ', 'us']")
+    print(f"  已设置 variations_permanent_consistency_country=[' ', 'us']（原值：'{old_display}'）")
 
 # ----- 紧凑格式原子写回，与 Chrome 原生格式保持一致 -----
 tmp = ls_path + '.tmp_write'

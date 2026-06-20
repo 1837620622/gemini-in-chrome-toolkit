@@ -304,13 +304,23 @@ function Repair-LocalState {
 
     # ----- 设置永久一致性地区码（Chrome 同步验证用）-----
     $permProp = $data.PSObject.Properties["variations_permanent_consistency_country"]
-    if (-not $permProp -or [string]::IsNullOrEmpty($data.variations_permanent_consistency_country)) {
+    $needsPermFix = $true
+    if ($permProp -and $data.variations_permanent_consistency_country) {
+        $pv = $data.variations_permanent_consistency_country
+        if ($pv -is [array]) {
+            $needsPermFix = -not ($pv | Where-Object { $_ -is [string] -and $_.ToLower() -like "*us*" })
+        } elseif ($pv -is [string] -and $pv.ToLower() -eq "us") {
+            $needsPermFix = $false
+        }
+    }
+    if ($needsPermFix) {
+        $oldPermStr = if ($permProp) { "$($data.variations_permanent_consistency_country)" } else { "None" }
         if (-not $permProp) {
             $data | Add-Member -NotePropertyName "variations_permanent_consistency_country" -NotePropertyValue @(" ", "us")
         } else {
             $data.variations_permanent_consistency_country = @(" ", "us")
         }
-        Write-Host "  已设置 variations_permanent_consistency_country=[' ', 'us']"
+        Write-Host "  已设置 variations_permanent_consistency_country=[' ', 'us']（原值：'$oldPermStr'）"
     }
 
     Write-JsonFile -Path $lsPath -Data $data
