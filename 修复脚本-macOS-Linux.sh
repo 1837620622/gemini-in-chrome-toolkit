@@ -107,10 +107,9 @@ quit_chrome() {
 # 创建完整备份
 # 时间戳化目录，所有修改均可秒级回滚
 # ============================================================
-BACKUP_TS=$(date +%s)
-BACKUP_BASE=""
-
 create_backup() {
+    BACKUP_TS="${BACKUP_TS:-$(date +%s)}"
+    BACKUP_BASE="${BACKUP_BASE:-}"
     log_step "创建完整备份（时间戳：$BACKUP_TS）"
     BACKUP_BASE="$CHROME_DIR/.gemini_fix_backup_$BACKUP_TS"
     mkdir -p "$BACKUP_BASE"
@@ -496,10 +495,10 @@ ${BOLD}步骤五：等待服务端灰度（如果按钮仍未出现）${NC}
   Gemini in Chrome 是逐步放量功能，账号资格通过后
   可能需要等待 1 至 72 小时才能在你的账号上激活
 
-${YELLOW}备份位置：${NC}$BACKUP_BASE
-${YELLOW}回滚命令：${NC}
-  cp -R "$BACKUP_BASE/Local State" "$CHROME_DIR/Local State"
-  for p in Default Profile\\ 1 Profile\\ 2; do
+${YELLOW}备份位置：${NC}${BACKUP_BASE:-（未创建）}
+${YELLOW}回滚命令（如果已备份）：${NC}
+  [ -n "${BACKUP_BASE:-}" ] && cp -R "$BACKUP_BASE/Local State" "$CHROME_DIR/Local State"
+  [ -n "${BACKUP_BASE:-}" ] && for p in Default Profile\\ 1 Profile\\ 2; do
       [ -f "$BACKUP_BASE/\$p/Preferences" ] && \\
       cp "$BACKUP_BASE/\$p/Preferences" "$CHROME_DIR/\$p/Preferences"
   done
