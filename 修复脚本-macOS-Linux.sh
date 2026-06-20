@@ -218,10 +218,31 @@ print(f"  移除异常 flag：{len(removed)} 条")
 for r in removed:
     print(f"    剪除：{r}")
 
-# ----- 启用 Glic（Gemini in Chrome 核心开关）-----
-if not data.get('is_glic_eligible'):
-    data['is_glic_eligible'] = True
-    print("  已启用 is_glic_eligible=true")
+# ----- 递归搜索并启用所有 is_glic_eligible（Chrome 可能在嵌套层也有此字段）-----
+def _set_glic_recursive(obj, depth=0):
+    count = 0
+    if isinstance(obj, dict):
+        for k, v in list(obj.items()):
+            if k == 'is_glic_eligible' and v is not True:
+                obj[k] = True
+                count += 1
+            else:
+                count += _set_glic_recursive(v, depth + 1)
+    elif isinstance(obj, list):
+        for item in obj:
+            count += _set_glic_recursive(item, depth + 1)
+    return count
+n_glic = _set_glic_recursive(data)
+print(f"  递归启用 is_glic_eligible：{n_glic} 处")
+
+# ----- 添加 Glic 实验 flag（帮助 Chrome 注册 Glic 子系统）-----
+glic_flags_to_add = ['glic@2', 'glic-side-panel@1', 'glic-actor@1', 'glic-pre-warming@1']
+browser = data.setdefault('browser', {})
+existing_flags = set(browser.get('enabled_labs_experiments', []))
+added = [f for f in glic_flags_to_add if f not in existing_flags]
+if added:
+    browser['enabled_labs_experiments'] = list(existing_flags) + added
+    print(f"  添加 Glic 实验 flag：{', '.join(added)}")
 
 # ----- 设置地区码为支持地区（关键：不设置则 Gemini 不显示）-----
 current_country = data.get('variations_country', '')
@@ -229,18 +250,22 @@ if not current_country or str(current_country).lower() in ('', 'cn'):
     data['variations_country'] = 'us'
     print(f"  已设置 variations_country='us'（原值：'{current_country}'）")
 
-# ----- 设置永久一致性地区码（Chrome 同步验证用）-----
+# ----- 设置永久一致性地区码（保留 Chrome 版本号，仅改国家为 us）-----
 current_perm = data.get('variations_permanent_consistency_country')
 def _is_perm_ok(v):
     if isinstance(v, list):
-        return any('us' in str(x).lower() for x in v)
+        return any('us' in str(x).lower() for x in v[1:]) if len(v) > 1 else False
     if isinstance(v, str):
         return v.lower() == 'us'
     return False
 if not _is_perm_ok(current_perm):
     old_display = str(current_perm) if current_perm else 'None'
-    data['variations_permanent_consistency_country'] = [' ', 'us']
-    print(f"  已设置 variations_permanent_consistency_country=[' ', 'us']（原值：'{old_display}'）")
+    if isinstance(current_perm, list) and len(current_perm) >= 1:
+        current_perm[-1] = 'us'
+        data['variations_permanent_consistency_country'] = current_perm
+    else:
+        data['variations_permanent_consistency_country'] = [' ', 'us']
+    print(f"  已修正 variations_permanent_consistency_country（原值：'{old_display}'）")
 
 # ----- 紧凑格式原子写回，与 Chrome 原生格式保持一致 -----
 tmp = ls_path + '.tmp_write'

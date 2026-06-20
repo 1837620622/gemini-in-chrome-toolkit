@@ -281,15 +281,53 @@ function Repair-LocalState {
         Write-Host "    剪除：$r"
     }
 
-    # ----- 启用 Glic（Gemini in Chrome 核心开关）-----
-    $glicProp = $data.PSObject.Properties["is_glic_eligible"]
-    if (-not $glicProp -or -not $data.is_glic_eligible) {
-        if (-not $glicProp) {
-            $data | Add-Member -NotePropertyName "is_glic_eligible" -NotePropertyValue $true
-        } else {
-            $data.is_glic_eligible = $true
+    # ----- 递归搜索并启用所有 is_glic_eligible（Chrome 可能在嵌套层也有此字段）-----
+    $nGlic = 0
+    function Set-GlicRecursive {
+        param($obj)
+        $count = 0
+        if ($obj -is [PSObject]) {
+            $propsToCheck = @($obj.PSObject.Properties)
+            foreach ($prop in $propsToCheck) {
+                if ($prop.Name -eq "is_glic_eligible" -and $prop.Value -ne $true) {
+                    $obj.$($prop.Name) = $true
+                    $count++
+                } else {
+                    $count += Set-GlicRecursive -obj $prop.Value
+                }
+            }
+        } elseif ($obj -is [System.Collections.IList]) {
+            foreach ($item in $obj) {
+                $count += Set-GlicRecursive -obj $item
+            }
         }
-        Write-Host "  已启用 is_glic_eligible=true"
+        return $count
+    }
+    $nGlic = Set-GlicRecursive -obj $data
+    Write-Host "  递归启用 is_glic_eligible：$nGlic 处"
+
+    # ----- 添加 Glic 实验 flag（帮助 Chrome 注册 Glic 子系统）-----
+    $glicFlags = @("glic@2", "glic-side-panel@1", "glic-actor@1", "glic-pre-warming@1")
+    if (-not $data.browser) {
+        $data | Add-Member -NotePropertyName browser -NotePropertyValue (New-Object PSObject)
+    }
+    if (-not $data.browser.enabled_labs_experiments) {
+        $data.browser | Add-Member -NotePropertyName enabled_labs_experiments -NotePropertyValue @()
+    }
+    $existingFlags = @($data.browser.enabled_labs_experiments)
+    $addedFlags = @()
+    foreach ($f in $glicFlags) {
+        $found = $false
+        foreach ($e in $existingFlags) {
+            if ($e -eq $f) { $found = $true; break }
+        }
+        if (-not $found) {
+            $addedFlags += $f
+        }
+    }
+    if ($addedFlags.Count -gt 0) {
+        $data.browser.enabled_labs_experiments = $existingFlags + $addedFlags
+        Write-Host "  添加 Glic 实验 flag：$($addedFlags -join ', ')"
     }
 
     # ----- 设置地区码为支持地区（关键：不设置则 Gemini 不显示）-----
@@ -302,13 +340,13 @@ function Repair-LocalState {
         Write-Host "  已设置 variations_country='us'（原值：'$country'）"
     }
 
-    # ----- 设置永久一致性地区码（Chrome 同步验证用）-----
+    # ----- 设置永久一致性地区码（保留 Chrome 版本号，仅改国家为 us）-----
     $permProp = $data.PSObject.Properties["variations_permanent_consistency_country"]
     $needsPermFix = $true
     if ($permProp -and $data.variations_permanent_consistency_country) {
         $pv = $data.variations_permanent_consistency_country
-        if ($pv -is [array]) {
-            $needsPermFix = -not ($pv | Where-Object { $_ -is [string] -and $_.ToLower() -like "*us*" })
+        if ($pv -is [array] -and $pv.Count -ge 2) {
+            $needsPermFix = $pv[-1] -ne "us"
         } elseif ($pv -is [string] -and $pv.ToLower() -eq "us") {
             $needsPermFix = $false
         }
@@ -317,10 +355,12 @@ function Repair-LocalState {
         $oldPermStr = if ($permProp) { "$($data.variations_permanent_consistency_country)" } else { "None" }
         if (-not $permProp) {
             $data | Add-Member -NotePropertyName "variations_permanent_consistency_country" -NotePropertyValue @(" ", "us")
+        } elseif ($pv -is [array]) {
+            $data.variations_permanent_consistency_country[-1] = "us"
         } else {
             $data.variations_permanent_consistency_country = @(" ", "us")
         }
-        Write-Host "  已设置 variations_permanent_consistency_country=[' ', 'us']（原值：'$oldPermStr'）"
+        Write-Host "  已修正 variations_permanent_consistency_country（原值：'$oldPermStr'）"
     }
 
     Write-JsonFile -Path $lsPath -Data $data
