@@ -10,7 +10,7 @@
 # 邮箱：2040168455@qq.com
 # ============================================================
 
-set -u
+set -uo pipefail 2>/dev/null || set -u
 export LC_ALL=en_US.UTF-8 2>/dev/null || true
 
 # ============================================================
@@ -110,7 +110,7 @@ quit_chrome() {
 create_backup() {
     BACKUP_TS="${BACKUP_TS:-$(date +%s)}"
     BACKUP_BASE="${BACKUP_BASE:-}"
-    log_step "创建完整备份（时间戳：$BACKUP_TS）"
+    log_step "创建完整备份(时间戳: ${BACKUP_TS})"
     BACKUP_BASE="$CHROME_DIR/.gemini_fix_backup_$BACKUP_TS"
     mkdir -p "$BACKUP_BASE"
 
